@@ -3,13 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>0G Bug Tracker</title>
+  <title>Automatic Bug Report System on 0G</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Configure Tailwind for dark mode
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            dark: {
+              900: '#0f172a',
+              800: '#1e293b',
+              700: '#334155',
+              600: '#475569',
+              500: '#64748b',
+              400: '#94a3b8',
+              300: '#cbd5e1',
+              200: '#e2e8f0',
+              100: '#f1f5f9',
+            }
+          }
+        }
+      }
+    }
+  </script>
 </head>
-<body>
+<body class="dark:bg-white-900">
   <div id="root"></div>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script type="text/babel">
@@ -177,18 +200,30 @@
       const FilterIcon = () => React.createElement('span', null, '🔍');
 
       return (
-        React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50' },
+        React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-dark-900 dark:via-dark-800 dark:to-dark-900' },
           // Header
-          React.createElement('header', { className: 'bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50' },
+          React.createElement('header', { className: 'bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50 dark:bg-white-800 dark:border-dark-700' },
             React.createElement('div', { className: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4' },
-              React.createElement('div', { className: 'flex items-center justify-between' },
+              React.createElement('div', { className: 'flex items-center space-x-3' },
+                // 0G Icon
+                React.createElement('img', { 
+                  src: '0g.jpg', 
+                  alt: '0G Logo', 
+                  className: 'h-8 w-8' 
+                }),
+                // Chain-Fox Icon
+                React.createElement('img', { 
+                  src: 'chain-fox.png', 
+                  alt: 'Chain-Fox Logo', 
+                  className: 'h-8 w-8' 
+                }),
                 React.createElement('div', { className: 'flex items-center space-x-3' },
-                  React.createElement('div', { className: 'w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center' },
-                    React.createElement(FileJsonIcon, null)
-                  ),
+                  // React.createElement('div', { className: 'w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center' },
+                  //   React.createElement(FileJsonIcon, null)
+                  // ),
                   React.createElement('div', null,
-                    React.createElement('h1', { className: 'text-2xl font-bold text-slate-900' }, '0G Bug Tracker'),
-                    React.createElement('p', { className: 'text-sm text-slate-600' }, 'Concurrency Bug Database')
+                    React.createElement('h1', { className: 'text-2xl font-bold text-slate-900 dark:text-dark-100' }, 'Automatic Bug Report System on 0G'),
+                    React.createElement('p', { className: 'text-sm text-slate-600 dark:text-dark-300' }, 'Bug reports powered by Chain-Fox')
                   )
                 ),
                 React.createElement('div', { className: 'flex items-center space-x-3' },
@@ -198,7 +233,7 @@
                       className: `px-4 py-2 rounded-lg font-medium transition-all ${
                         isAdmin 
                           ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
-                          : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                          : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-white-700 dark:text-dark-200 dark:hover:bg-white-600'
                       }`
                     },
                     isAdmin ? 'Admin Mode' : 'User Mode'
@@ -227,7 +262,7 @@
                   React.createElement('button',
                     {
                       onClick: downloadBugs,
-                      className: 'px-4 py-2 bg-white border-2 border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-all flex items-center space-x-2'
+                      className: 'px-4 py-2 bg-white border-2 border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-all flex items-center space-x-2 dark:bg-white-800 dark:border-dark-600 dark:text-dark-200 dark:hover:bg-white-700'
                     },
                     React.createElement(DownloadIcon, { className: 'w-5 h-5' }),
                     React.createElement('span', null, 'Export')
@@ -252,7 +287,7 @@
           // Main Content
           React.createElement('main', { className: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8' },
             // Filters
-            React.createElement('div', { className: 'bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6' },
+            React.createElement('div', { className: 'bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 dark:bg-white-800 dark:border-dark-700' },
               React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
                 React.createElement('div', { className: 'relative' },
                   React.createElement(SearchIcon, { className: 'absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5' }),
@@ -261,7 +296,7 @@
                     placeholder: 'Search bugs...',
                     value: searchTerm,
                     onChange: (e) => setSearchTerm(e.target.value),
-                    className: 'w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all'
+                    className: 'w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all dark:bg-white-700 dark:border-dark-600 dark:text-dark-100'
                   })
                 ),
                 React.createElement('div', { className: 'relative' },
@@ -269,7 +304,7 @@
                   React.createElement('select', {
                     value: selectedSeverity,
                     onChange: (e) => setSelectedSeverity(e.target.value),
-                    className: 'w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none appearance-none transition-all'
+                    className: 'w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none appearance-none transition-all dark:bg-white-700 dark:border-dark-600 dark:text-dark-100'
                   },
                     React.createElement('option', { value: 'all' }, 'All Severities'),
                     uniqueSeverities.map(s => React.createElement('option', { key: s, value: s }, s))
@@ -280,7 +315,7 @@
                   React.createElement('select', {
                     value: selectedType,
                     onChange: (e) => setSelectedType(e.target.value),
-                    className: 'w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none appearance-none transition-all'
+                    className: 'w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none appearance-none transition-all dark:bg-white-700 dark:border-dark-600 dark:text-dark-100'
                   },
                     React.createElement('option', { value: 'all' }, 'All Types'),
                     uniqueTypes.map(t => React.createElement('option', { key: t, value: t }, t))
@@ -320,14 +355,14 @@
                 filteredBugs.map((bug) => 
                   React.createElement('div', {
                     key: bug.id,
-                    className: 'bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all cursor-pointer overflow-hidden',
+                    className: 'bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all cursor-pointer overflow-hidden dark:bg-white-800 dark:border-dark-700 dark:hover:bg-white-750',
                     onClick: () => setSelectedBug(bug)
                   },
                     React.createElement('div', { className: 'p-6' },
                       React.createElement('div', { className: 'flex items-start justify-between mb-4' },
                         React.createElement('div', null,
-                          React.createElement('h3', { className: 'text-lg font-bold text-slate-900 mb-1' }, bug.id),
-                          React.createElement('p', { className: 'text-sm text-slate-600' }, bug.project)
+                          React.createElement('h3', { className: 'text-lg font-bold text-slate-900 mb-1 dark:text-dark-100' }, bug.id),
+                          React.createElement('p', { className: 'text-sm text-slate-600 dark:text-dark-300' }, bug.project)
                         ),
                         React.createElement('span', {
                           className: `px-3 py-1 rounded-full text-xs font-semibold border ${getSeverityColor(bug.severity)}`
@@ -348,7 +383,7 @@
                         )
                       ),
                       React.createElement('button', {
-                        className: 'w-full mt-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-all flex items-center justify-center space-x-2'
+                        className: 'w-full mt-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-all flex items-center justify-center space-x-2 dark:bg-white-700 dark:hover:bg-white-600 dark:text-dark-200'
                       },
                         React.createElement(EyeIcon, { className: 'w-4 h-4' }),
                         React.createElement('span', null, 'View Details')
@@ -362,18 +397,18 @@
           
           // Detail Modal
           selectedBug && React.createElement('div', {
-            className: 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4',
+            className: 'fixed inset-0 bg-white bg-opacity-50 z-50 flex items-center justify-center p-4',
             onClick: () => setSelectedBug(null)
           },
             React.createElement('div', {
-              className: 'bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto',
+              className: 'bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto dark:bg-white-800',
               onClick: (e) => e.stopPropagation()
             },
               React.createElement('div', { className: 'sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-2xl' },
                 React.createElement('div', { className: 'flex items-start justify-between' },
                   React.createElement('div', null,
-                    React.createElement('h2', { className: 'text-2xl font-bold mb-2' }, selectedBug.id),
-                    React.createElement('p', { className: 'text-blue-100' }, selectedBug.project)
+                    React.createElement('h2', { className: 'text-2xl font-bold mb-2 dark:text-dark-100' }, selectedBug.id),
+                    React.createElement('p', { className: 'text-blue-100 dark:text-dark-300' }, selectedBug.project)
                   ),
                   React.createElement('button', {
                     onClick: () => setSelectedBug(null),
@@ -438,7 +473,7 @@
             )
           )
         )
-      );
+      )
     };
     
     // Render the app
