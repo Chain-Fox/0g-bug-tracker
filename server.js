@@ -163,6 +163,17 @@ app.get('/api/file-hash', (req, res) => {
   res.json({ rootHash: uploadedFileHash });
 });
 
+// Get admin credentials for verification (in a real app, this should be more secure)
+app.get('/api/admin-credentials', (req, res) => {
+  const adminEmail = process.env['EMAIL_0G'] || 'admin@example.com';
+  const adminPassword = process.env['DUMMY_0G'] || 'dummy';
+  
+  res.json({ 
+    email: adminEmail,
+    password: adminPassword
+  });
+});
+
 // Initialize data directory
 async function initDataDir() {
   try {
