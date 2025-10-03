@@ -482,8 +482,8 @@
                     React.createElement('p', { className: 'text-slate-900 font-medium mt-1' }, selectedBug.type)
                   ),
                   React.createElement('div', null,
-                    React.createElement('label', { className: 'text-sm font-semibold text-slate-500 uppercase tracking-wide' }, 'Repository'),
-                    React.createElement('p', { className: 'text-slate-900 mt-1' }, selectedBug.repo)
+                    React.createElement('label', { className: 'text-sm font-semibold text-slate-500 uppercase tracking-wide' }, 'Project'),
+                    React.createElement('p', { className: 'text-slate-900 mt-1' }, selectedBug.project)
                   ),
                   React.createElement('div', null,
                     React.createElement('label', { className: 'text-sm font-semibold text-slate-500 uppercase tracking-wide' }, 'Commit'),
@@ -496,6 +496,10 @@
                   React.createElement('div', null,
                     React.createElement('label', { className: 'text-sm font-semibold text-slate-500 uppercase tracking-wide' }, 'Component'),
                     React.createElement('p', { className: 'text-slate-900 mt-1' }, selectedBug.component)
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { className: 'text-sm font-semibold text-slate-500 uppercase tracking-wide' }, 'Version'),
+                    React.createElement('p', { className: 'text-slate-900 mt-1' }, selectedBug.version)
                   )
                 ),
                 React.createElement('div', null,
@@ -515,7 +519,7 @@
                   React.createElement('p', { className: 'text-slate-900 mt-1 bg-green-50 border border-green-200 p-4 rounded-lg' }, selectedBug.suggestion)
                 ),
                 React.createElement('div', null,
-                  React.createElement('label', { className: 'text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2 block' }, 'Code Example'),
+                  React.createElement('label', { className: 'text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2 block' }, 'Buggy Code'),
                   React.createElement('pre', { className: 'bg-slate-900 text-slate-100 p-4 rounded-lg overflow-x-auto text-sm' },
                     React.createElement('code', null, selectedBug.code)
                   )
