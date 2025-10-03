@@ -25,9 +25,11 @@
       const [uploading, setUploading] = React.useState(false);
       const [loading, setLoading] = React.useState(false);
       const [message, setMessage] = React.useState(null);
+      const [fileHash, setFileHash] = React.useState(null); // To store the 0G file hash
 
       React.useEffect(() => {
         loadBugs();
+        loadFileHash(); // Load the last uploaded file hash
       }, []);
 
       React.useEffect(() => {
@@ -45,6 +47,16 @@
           showMessage('Failed to load bugs: ' + error.message, 'error');
         }
         setLoading(false);
+      };
+
+      const loadFileHash = async () => {
+        try {
+          const response = await fetch('/api/file-hash');
+          const data = await response.json();
+          setFileHash(data.rootHash);
+        } catch (error) {
+          console.error('Failed to load file hash:', error);
+        }
       };
 
       const filterBugs = () => {
@@ -87,13 +99,40 @@
           
           if (!response.ok) throw new Error('Upload failed');
           
-          showMessage('File uploaded successfully', 'success');
+          const result = await response.json();
+          if (result.rootHash) {
+            setFileHash(result.rootHash);
+          }
+          
+          showMessage('File uploaded successfully to 0G storage', 'success');
           await loadBugs();
         } catch (error) {
           showMessage('Upload failed: ' + error.message, 'error');
         }
         setUploading(false);
         e.target.value = '';
+      };
+
+      const downloadFrom0G = async () => {
+        if (!fileHash) {
+          showMessage('No file hash available. Please upload a file first.', 'error');
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const response = await fetch(`/api/download/${fileHash}`);
+          
+          if (!response.ok) throw new Error('Download failed');
+          
+          const result = await response.json();
+          setBugs(result.data);
+          setFilteredBugs(result.data);
+          showMessage('File downloaded successfully from 0G storage', 'success');
+        } catch (error) {
+          showMessage('Download failed: ' + error.message, 'error');
+        }
+        setLoading(false);
       };
 
       const downloadBugs = () => {
@@ -177,6 +216,14 @@
                       disabled: uploading
                     })
                   ),
+                  isAdmin && fileHash && React.createElement('button',
+                    {
+                      onClick: downloadFrom0G,
+                      className: 'px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 transition-all flex items-center space-x-2 shadow-md'
+                    },
+                    React.createElement(DownloadIcon, { className: 'w-5 h-5' }),
+                    React.createElement('span', null, 'Download from 0G')
+                  ),
                   React.createElement('button',
                     {
                       onClick: downloadBugs,
@@ -242,6 +289,10 @@
               ),
               React.createElement('div', { className: 'mt-4 flex items-center justify-between text-sm text-slate-600' },
                 React.createElement('span', null, `Showing ${filteredBugs.length} of ${bugs.length} bugs`),
+                fileHash && React.createElement('div', { className: 'text-xs text-slate-500 truncate max-w-xs' },
+                  React.createElement('span', { className: 'font-medium' }, 'File Hash: '),
+                  React.createElement('span', { title: fileHash }, fileHash.substring(0, 20) + '...')
+                ),
                 (searchTerm || selectedSeverity !== 'all' || selectedType !== 'all') && React.createElement('button', {
                   onClick: () => {
                     setSearchTerm('');
