@@ -6,8 +6,8 @@
   <title>Automatic Bug Report System on 0G</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script>
     // Configure Tailwind for dark mode
     tailwind.config = {
@@ -35,7 +35,7 @@
 <body class="dark:bg-white-900">
   <div id="root"></div>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-  <script type="text/babel">
+  <script type="text/javascript">
     // Simple approach - create React component and render it
     const BugTrackerApp = () => {
       const [bugs, setBugs] = React.useState([]);
@@ -53,6 +53,22 @@
       const [message, setMessage] = React.useState(null);
       const [fileHash, setFileHash] = React.useState(null); // To store the 0G file hash
       const [adminCredentials, setAdminCredentials] = React.useState(null); // To store admin credentials
+      const [reportQuery, setReportQuery] = React.useState('');
+      const [reportResult, setReportResult] = React.useState(null);
+      const [reportSearching, setReportSearching] = React.useState(false);
+      const [reportMessage, setReportMessage] = React.useState(null);
+      const [reportExplanation, setReportExplanation] = React.useState(null);
+      const [reportExplanationLoading, setReportExplanationLoading] = React.useState(false);
+
+      const explanationHtml = React.useMemo(() => {
+        if (!reportExplanation) {
+          return null;
+        }
+        if (window.marked && typeof window.marked.parse === 'function') {
+          return window.marked.parse(reportExplanation);
+        }
+        return reportExplanation.replace(/\\n/g, '<br />');
+      }, [reportExplanation]);
 
       // Function to fetch admin credentials
       const fetchAdminCredentials = async () => {
@@ -224,6 +240,72 @@
         showMessage('Downloaded successfully', 'success');
       };
 
+      const handleLoadReportExplanation = async () => {
+        if (!reportResult || !reportResult.slug) {
+          setReportMessage('No explanation available for this report.');
+          return;
+        }
+
+        setReportExplanationLoading(true);
+        setReportMessage(null);
+
+        try {
+          const response = await fetch(`/api/reports/${encodeURIComponent(reportResult.slug)}/explain`);
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            setReportExplanation(data.markdown);
+          } else {
+            setReportExplanation(null);
+            setReportMessage(data.message || 'Explanation not available for this report.');
+          }
+        } catch (error) {
+          console.error('Failed to load explanation:', error);
+          setReportExplanation(null);
+          setReportMessage('Failed to load explanation. Please try again.');
+        }
+
+        setReportExplanationLoading(false);
+      };
+
+      const handleReportSearch = async (event) => {
+        event.preventDefault();
+        const trimmedQuery = reportQuery.trim();
+
+        if (!trimmedQuery) {
+          setReportResult(null);
+          setReportMessage('Enter a project name to search.');
+          setReportExplanation(null);
+          setReportExplanationLoading(false);
+          return;
+        }
+
+        setReportSearching(true);
+        setReportMessage(null);
+
+        try {
+          const response = await fetch(`/api/reports/search?q=${encodeURIComponent(trimmedQuery)}`);
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            setReportResult(data.match);
+            setReportMessage(null);
+            setReportExplanation(null);
+          } else {
+            setReportResult(null);
+            setReportMessage(data.message || 'No matching report found.');
+            setReportExplanation(null);
+          }
+        } catch (error) {
+          console.error('Report search failed:', error);
+          setReportResult(null);
+          setReportMessage('Search failed. Please try again.');
+          setReportExplanation(null);
+        }
+
+        setReportSearching(false);
+      };
+
       const showMessage = (text, type) => {
         setMessage({ text, type });
         setTimeout(() => setMessage(null), 3000);
@@ -387,6 +469,107 @@
                   },
                   className: 'text-blue-600 hover:text-blue-700 font-medium'
                 }, 'Clear filters')
+              )
+            ),
+
+            React.createElement('div', { className: 'bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 dark:bg-white-800 dark:border-dark-700' },
+              React.createElement('div', { className: 'flex items-center justify-between flex-wrap gap-2 mb-4' },
+                React.createElement('div', null,
+                  React.createElement('h2', { className: 'text-lg font-semibold text-slate-900 dark:text-dark-100' }, 'Find Audit Reports'),
+                  React.createElement('p', { className: 'text-sm text-slate-600 dark:text-dark-300' }, 'Search by project name, symbol, or repository reference.')
+                )
+              ),
+              React.createElement('form', {
+                className: 'grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3',
+                onSubmit: handleReportSearch
+              },
+                React.createElement('div', { className: 'relative' },
+                  React.createElement(SearchIcon, { className: 'absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5' }),
+                  React.createElement('input', {
+                    type: 'text',
+                    value: reportQuery,
+                    placeholder: 'Search audited projects e.g. "d3-doma"',
+                    onChange: (e) => {
+                      const value = e.target.value;
+                      setReportQuery(value);
+                      if (!value.trim()) {
+                        setReportResult(null);
+                        setReportMessage(null);
+                        setReportExplanation(null);
+                        setReportExplanationLoading(false);
+                        return;
+                      }
+                      if (reportMessage) {
+                        setReportMessage(null);
+                      }
+                    },
+                    className: 'w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all dark:bg-white-700 dark:border-dark-600 dark:text-dark-100'
+                  })
+                ),
+                React.createElement('button', {
+                  type: 'submit',
+                  disabled: reportSearching,
+                  className: `w-full md:w-auto px-4 py-3 rounded-lg font-medium transition-all ${
+                    reportSearching
+                      ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`
+                }, reportSearching ? 'Searching...' : 'Find Report')
+              ),
+              reportMessage && React.createElement('p', { className: 'mt-3 text-sm text-slate-500 dark:text-dark-300' }, reportMessage),
+              reportResult && React.createElement('div', { className: 'mt-5 border border-slate-200 rounded-lg p-4 bg-slate-50 dark:border-dark-600 dark:bg-white-900' },
+                React.createElement('h3', { className: 'text-base font-semibold text-slate-900 dark:text-dark-100' }, reportResult.title),
+                React.createElement('dl', { className: 'mt-3 space-y-2 text-sm text-slate-600 dark:text-dark-300' },
+                  reportResult.date && React.createElement('div', { className: 'flex items-center gap-2' },
+                    React.createElement('dt', { className: 'font-medium w-24' }, 'Date'),
+                    React.createElement('dd', null, reportResult.date)
+                  ),
+                  reportResult.url && React.createElement('div', { className: 'flex items-center gap-2' },
+                    React.createElement('dt', { className: 'font-medium w-24' }, 'Report'),
+                    React.createElement('dd', null,
+                      React.createElement('a', {
+                        href: reportResult.url,
+                        className: 'text-indigo-600 hover:text-indigo-700 font-medium',
+                        target: '_blank',
+                        rel: 'noopener noreferrer'
+                      }, 'View PDF')
+                    )
+                  ),
+                  reportResult.github_repo && React.createElement('div', { className: 'flex items-center gap-2' },
+                    React.createElement('dt', { className: 'font-medium w-24' }, 'Repository'),
+                    React.createElement('dd', null,
+                      React.createElement('a', {
+                        href: reportResult.github_repo,
+                        className: 'text-indigo-600 hover:text-indigo-700 font-medium',
+                        target: '_blank',
+                        rel: 'noopener noreferrer'
+                      }, reportResult.github_repo.replace(/^https?:\/\//, ''))
+                    )
+                  ),
+                  reportResult.commit_hash && React.createElement('div', { className: 'flex items-center gap-2' },
+                    React.createElement('dt', { className: 'font-medium w-24' }, 'Commit'),
+                    React.createElement('dd', { className: 'font-mono text-xs break-all' }, reportResult.commit_hash)
+                  )
+                ),
+                reportResult.hasExplanation
+                  ? React.createElement('div', { className: 'mt-4 flex items-center gap-3 flex-wrap' },
+                      React.createElement('button', {
+                        type: 'button',
+                        onClick: handleLoadReportExplanation,
+                        disabled: reportExplanationLoading,
+                        className: `px-4 py-2 rounded-lg font-medium transition-all ${
+                          reportExplanationLoading
+                            ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        }`
+                      }, reportExplanationLoading ? 'Explaining...' : 'Explain by AI'),
+                      reportExplanation && React.createElement('span', { className: 'text-sm text-emerald-600' }, 'AI summary loaded')
+                    )
+                  : React.createElement('p', { className: 'mt-4 text-sm text-slate-500 dark:text-dark-300' }, 'No AI explanation available for this report yet.'),
+                reportExplanation && React.createElement('div', {
+                  className: 'mt-4 bg-white rounded-lg border border-slate-200 p-4 text-sm leading-relaxed dark:bg-dark-800 dark:border-dark-600 overflow-x-auto',
+                  dangerouslySetInnerHTML: { __html: explanationHtml || '' }
+                })
               )
             ),
             

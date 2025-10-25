@@ -26,6 +26,8 @@ app.use(express.static('public'));
 // In-memory storage for demo (replace with actual 0G storage)
 let bugsCache = [];
 let uploadedFileHash = null; // Store the hash of the last uploaded file
+let reportsCache = []; // Store audit reports for fuzzy search
+let reportDocsIndex = null; // Map normalized report identifiers to markdown files
 
 // Initialize 0G client
 let indexer;
@@ -36,6 +38,243 @@ try {
   signer = new ethers.Wallet(PRIVATE_KEY, provider);
 } catch (error) {
   console.error('Failed to initialize 0G Indexer:', error);
+}
+
+async function ensureReportsLoaded() {
+  if (reportsCache.length > 0) {
+    return;
+  }
+
+  try {
+    const reportsPath = path.join(__dirname, 'data', 'reports.json');
+    const data = await fs.readFile(reportsPath, 'utf8');
+    const parsed = JSON.parse(data);
+    const reportsArray = Array.isArray(parsed) ? parsed : [];
+    await ensureReportDocsIndex();
+
+    reportsCache = await Promise.all(
+      reportsArray.map(async (item, index) => {
+        const base = (item && typeof item === 'object') ? item : {};
+        const slugSource = base.slug || base.title || base.github_repo || base.url || `report-${index + 1}`;
+        const slugCandidate = createSlug(String(slugSource));
+        const slug = slugCandidate || `report-${index + 1}`;
+        const reportWithSlug = { ...base, slug };
+        const explanationPath = await resolveExplanationPath(reportWithSlug);
+
+        return {
+          ...reportWithSlug,
+          explanationPath: explanationPath || null,
+          hasExplanation: Boolean(explanationPath),
+        };
+      })
+    );
+
+    if (!Array.isArray(parsed)) {
+      console.warn('Expected reports.json to contain an array of reports. Ignoring invalid data.');
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error('Failed to load reports.json:', error);
+    }
+    reportsCache = [];
+  }
+}
+
+function normalizeText(value) {
+  if (!value) return '';
+  return value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function levenshteinDistance(a, b) {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const previousRow = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 0; i < a.length; i += 1) {
+    const currentRow = [i + 1];
+    for (let j = 0; j < b.length; j += 1) {
+      const insertCost = currentRow[j] + 1;
+      const deleteCost = previousRow[j + 1] + 1;
+      const replaceCost = previousRow[j] + (a[i] === b[j] ? 0 : 1);
+      currentRow.push(Math.min(insertCost, deleteCost, replaceCost));
+    }
+    for (let j = 0; j <= b.length; j += 1) {
+      previousRow[j] = currentRow[j];
+    }
+  }
+  return previousRow[b.length];
+}
+
+function createSlug(value) {
+  return value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+async function ensureReportDocsIndex() {
+  if (reportDocsIndex !== null) {
+    return;
+  }
+
+  try {
+    const reportsDir = path.join(__dirname, 'data', 'reports');
+    const entries = await fs.readdir(reportsDir);
+    reportDocsIndex = {};
+
+    entries.forEach((entry) => {
+      if (entry.toLowerCase().endsWith('.md')) {
+        const baseName = entry.slice(0, -3);
+        const normalized = normalizeText(baseName);
+        if (normalized) {
+          reportDocsIndex[normalized] = path.join(reportsDir, entry);
+        }
+      }
+    });
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error('Failed to read reports directory:', error);
+    }
+    reportDocsIndex = {};
+  }
+}
+
+function buildReportDocCandidates(report, slug) {
+  const candidates = new Set();
+  if (slug) candidates.add(slug);
+  if (report.title) candidates.add(report.title);
+
+  if (report.github_repo) {
+    candidates.add(report.github_repo);
+    const segments = report.github_repo.split('/').filter(Boolean);
+    if (segments.length > 0) {
+      candidates.add(segments[segments.length - 1]);
+    }
+  }
+
+  if (report.url) {
+    candidates.add(report.url);
+    try {
+      const urlObj = new URL(report.url);
+      if (urlObj.pathname) {
+        const fileName = path.basename(urlObj.pathname);
+        if (fileName) {
+          candidates.add(fileName);
+          candidates.add(fileName.replace(/\.[^.]+$/, ''));
+        }
+      }
+    } catch (error) {
+      // Ignore malformed URLs
+    }
+  }
+
+  return Array.from(candidates).filter(Boolean);
+}
+
+function findDocPathForCandidates(candidates) {
+  if (!reportDocsIndex) {
+    return null;
+  }
+
+  let bestPath = null;
+  let bestSimilarity = 0;
+  const entries = Object.entries(reportDocsIndex);
+
+  for (const candidate of candidates) {
+    const normalized = normalizeText(candidate);
+    if (normalized && reportDocsIndex[normalized]) {
+      return reportDocsIndex[normalized];
+    }
+
+    if (!normalized) {
+      continue;
+    }
+
+    entries.forEach(([key, value]) => {
+      const maxLength = Math.max(key.length, normalized.length, 1);
+      const distance = levenshteinDistance(key, normalized);
+      const similarity = 1 - distance / maxLength;
+      if (similarity > bestSimilarity) {
+        bestSimilarity = similarity;
+        bestPath = value;
+      }
+    });
+  }
+
+  if (bestPath && bestSimilarity >= 0.6) {
+    return bestPath;
+  }
+
+  return null;
+}
+
+async function resolveExplanationPath(report) {
+  await ensureReportDocsIndex();
+  const slugSource = report.slug || report.title || report.github_repo || report.url;
+  const slug = slugSource ? createSlug(String(slugSource)) : '';
+  const candidates = buildReportDocCandidates(report, slug);
+  return findDocPathForCandidates(candidates);
+}
+
+function sanitizeReport(report) {
+  if (!report) {
+    return null;
+  }
+
+  const { explanationPath, ...publicFields } = report;
+  return publicFields;
+}
+
+function findBestReportMatch(query) {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) {
+    return null;
+  }
+
+  let bestMatch = null;
+  let bestScore = -Infinity;
+
+  reportsCache.forEach((report) => {
+    const candidates = [
+      report.title,
+      report.github_repo,
+      report.url,
+    ]
+      .filter(Boolean)
+      .map((value) => normalizeText(value));
+
+    candidates.forEach((candidate) => {
+      if (!candidate) return;
+
+      if (candidate.includes(normalizedQuery) || normalizedQuery.includes(candidate)) {
+        const score = normalizedQuery.length / Math.max(candidate.length, 1);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = report;
+        }
+        return;
+      }
+
+      const distance = levenshteinDistance(candidate, normalizedQuery);
+      const maxLength = Math.max(candidate.length, normalizedQuery.length, 1);
+      const similarity = 1 - distance / maxLength;
+      if (similarity > bestScore) {
+        bestScore = similarity;
+        bestMatch = report;
+      }
+    });
+  });
+
+  if (bestScore < 0.45) {
+    return null;
+  }
+
+  return { report: bestMatch, score: bestScore };
 }
 
 // Upload JSON file to 0G storage
@@ -158,6 +397,55 @@ app.get('/api/bugs', async (req, res) => {
   }
 });
 
+app.get('/api/reports/search', async (req, res) => {
+  try {
+    const query = (req.query.q || '').trim();
+    if (!query) {
+      return res.status(400).json({ error: 'Query parameter "q" is required' });
+    }
+
+    await ensureReportsLoaded();
+    const result = findBestReportMatch(query);
+
+    if (!result) {
+      return res.json({ success: false, message: 'No matching report found' });
+    }
+
+    res.json({ success: true, match: sanitizeReport(result.report), score: result.score });
+  } catch (error) {
+    console.error('Report search failed:', error);
+    res.status(500).json({ error: 'Failed to search reports' });
+  }
+});
+
+app.get('/api/reports/:slug/explain', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    await ensureReportsLoaded();
+
+    const normalizedSlug = normalizeText(slug);
+    const report = reportsCache.find((item) => normalizeText(item.slug) === normalizedSlug);
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    const explanationPath = report.explanationPath || await resolveExplanationPath(report);
+    if (!explanationPath) {
+      return res.json({ success: false, message: 'Explanation not available for this report.' });
+    }
+
+    const markdown = await fs.readFile(explanationPath, 'utf8');
+    res.json({
+      success: true,
+      report: sanitizeReport(report),
+      markdown,
+    });
+  } catch (error) {
+    console.error('Failed to load report explanation:', error);
+    res.status(500).json({ error: 'Failed to load report explanation' });
+  }
+});
+
 // Get last uploaded file hash
 app.get('/api/file-hash', (req, res) => {
   res.json({ rootHash: uploadedFileHash });
@@ -180,6 +468,7 @@ async function initDataDir() {
     await fs.mkdir('data', { recursive: true });
     await fs.mkdir('uploads', { recursive: true });
     await fs.mkdir('downloads', { recursive: true });
+    await ensureReportsLoaded();
   } catch (error) {
     console.error('Failed to create directories:', error);
   }
