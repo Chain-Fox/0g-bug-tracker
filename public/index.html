@@ -240,9 +240,18 @@
         showMessage('Downloaded successfully', 'success');
       };
 
-      const handleLoadReportExplanation = async () => {
+      const handleToggleReportExplanation = async () => {
+        if (reportExplanationLoading) {
+          return;
+        }
+
         if (!reportResult || !reportResult.slug) {
           setReportMessage('No explanation available for this report.');
+          return;
+        }
+
+        if (reportExplanation) {
+          setReportExplanation(null);
           return;
         }
 
@@ -555,14 +564,16 @@
                   ? React.createElement('div', { className: 'mt-4 flex items-center gap-3 flex-wrap' },
                       React.createElement('button', {
                         type: 'button',
-                        onClick: handleLoadReportExplanation,
+                        onClick: handleToggleReportExplanation,
                         disabled: reportExplanationLoading,
                         className: `px-4 py-2 rounded-lg font-medium transition-all ${
                           reportExplanationLoading
                             ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                            : reportExplanation
+                              ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-white-700 dark:text-dark-200 dark:hover:bg-white-600'
+                              : 'bg-indigo-600 text-white hover:bg-indigo-700'
                         }`
-                      }, reportExplanationLoading ? 'Explaining...' : 'Explain by AI'),
+                      }, reportExplanationLoading ? 'Explaining...' : (reportExplanation ? 'Hide AI Explanation' : 'Explain by AI')),
                       reportExplanation && React.createElement('span', { className: 'text-sm text-emerald-600' }, 'AI summary loaded')
                     )
                   : React.createElement('p', { className: 'mt-4 text-sm text-slate-500 dark:text-dark-300' }, 'No AI explanation available for this report yet.'),
